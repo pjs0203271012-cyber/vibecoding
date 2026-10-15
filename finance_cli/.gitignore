@@ -1,0 +1,5 @@
+# 数据库文件（个人账目数据，不进 git）
+finance.db
+
+# Python 运行产生的缓存文件夹
+__pycache__/
