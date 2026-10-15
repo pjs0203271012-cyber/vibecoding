@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+/* 显式指定源码扫描目录（项目根）。
+   Tailwind 4 的自动检测在本机环境失效（生成的 CSS 里没有工具类），
+   用 @source 兜底：扫描除 node_modules 和 .gitignore 外的全部文件 */
+@source "../..";
+
+/* ============================================================
+   TailwindCSS 4 的 CSS-first 配置方式：
+   不需要 tailwind.config.js，直接在 @theme 里定义设计变量，
+   类名自动生成（如 bg-brand-500、text-brand-600）。
+   ============================================================ */
+@theme {
+  /* 品牌色（橙色系） */
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
+
+  /* 中文字体栈：优先使用各平台的默认中文字体 */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}

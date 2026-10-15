@@ -1,0 +1,110 @@
+// ============================================================
+// Mini Mall 数据模型
+// 注意：Prisma 5 的 SQLite 连接器不支持 enum（Prisma 6.2 才加入），
+// 所以角色/订单状态用 String，配合 src/lib/constants.ts 里的常量做类型约束。
+// 价格统一用 Int 存「分」（¥12.99 存 1299），避免浮点误差。
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============ 用户 ============
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique // 邮箱即登录账号
+  passwordHash String // bcrypt 哈希，绝不存明文
+  name         String // 昵称
+  role         String   @default("CUSTOMER") // CUSTOMER | ADMIN
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cartItems CartItem[] // 一个用户有多条购物车记录
+  orders    Order[] // 一个用户有多个订单
+}
+
+// ============ 分类 ============
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique // 分类名唯一，防止重复
+  createdAt DateTime @default(now())
+
+  products Product[]
+}
+
+// ============ 商品 ============
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String   @default("")
+  price       Int // 单价，单位：分
+  imageUrl    String   @default("") // 网络图片 URL，本项目不做文件上传
+  stock       Int      @default(100) // 库存（MVP 仅展示，暂不做扣减）
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict) // 分类下有商品时禁止删除分类
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cartItems CartItem[]
+
+  @@index([categoryId]) // 按分类筛选时加速查询
+}
+
+// ============ 购物车条目 ============
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade) // 用户删除时购物车条目级联删除
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade) // 商品删除时购物车条目级联删除
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId]) // 同一用户同一商品只有一条：重复加购只累加数量
+  @@index([userId])
+}
+
+// ============ 订单 ============
+model Order {
+  id            Int        @id @default(autoincrement())
+  orderNo       String     @unique // 展示用订单号（时间戳+随机数）
+  userId        Int
+  user          User       @relation(fields: [userId], references: [id], onDelete: Restrict) // 有订单的用户不允许删除
+  status        String     @default("PENDING") // PENDING | PAID | SHIPPED | COMPLETED | CANCELLED
+  totalAmount   Int // 订单总金额（分），下单时从数据库实时计算
+  receiverName  String // 收货人
+  receiverPhone String // 收货电话
+  address       String // 收货地址（简化：一个字符串）
+  remark        String     @default("") // 订单备注
+  paidAt        DateTime? // 支付时间：模拟支付时记录，未支付为 null
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status]) // 后台按状态筛选订单
+}
+
+// ============ 订单条目（商品快照） ============
+model OrderItem {
+  id        Int   @id @default(autoincrement())
+  orderId   Int
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // 注意：productId 故意【不建外键关联】，只存整数 + 下面几个快照字段。
+  // 订单是下单那一刻的「历史快照」：商品之后被改名/改价/删除，都不影响已生成的订单。
+  productId    Int
+  productName  String // 下单时的商品名
+  productImage String // 下单时的图片 URL
+  price        Int // 下单时的单价（分）
+  quantity     Int // 购买数量
+
+  @@index([orderId])
+}
